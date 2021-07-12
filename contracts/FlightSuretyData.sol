@@ -22,15 +22,30 @@ contract FlightSuretyData {
     uint256 internal totalAirlines = 0; // Number of registered airlines
     mapping(address => Airline) private airlines; // Registered airlines
     mapping(address => uint256) private airlineBalances; // Balance for each airline
-    mapping(address => address[]) private airlineVotes;
+
+    struct Flight {
+        address airlineAdress;
+        bytes32 flightNumber;
+        uint256 flightTime;
+        uint8 flightStatus;
+    }
+    bytes32[] private flightKeys;
+    mapping(bytes32 => Flight) private flights;
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
     /********************************************************************************************/
 
+    event CallerAuthorized(address callerAddress);
     event AirlineRegistered(address airlineAddress);
     event AirlineFunded(address airlineAddress, uint256 amount);
     event AirlineVoted(address airlineAddress, address voterAddress);
+    event FlightRegistered(
+        address airlineAddress,
+        bytes32 flightNumber,
+        uint256 flightTime,
+        uint8 flightStatus
+    );
 
     /**
      * @dev Constructor
@@ -38,9 +53,8 @@ contract FlightSuretyData {
      */
     constructor(address airlineAddress) public {
         contractOwner = msg.sender;
-        authorizedCallers[msg.sender] = true;
 
-        totalAirlines.add(1);
+        totalAirlines = totalAirlines.add(1);
         airlines[airlineAddress] = Airline(airlineAddress, true, false);
     }
 
@@ -105,6 +119,7 @@ contract FlightSuretyData {
         requireContractOwner
     {
         authorizedCallers[callerAddress] = true;
+        emit CallerAuthorized(callerAddress);
     }
 
     // function getBalance()
@@ -135,10 +150,22 @@ contract FlightSuretyData {
         external
         view
         requireIsOperational
-        requireCallerAuthorized
         returns (uint256)
     {
         return totalAirlines;
+    }
+
+    function getFlightNumbers()
+        external
+        view
+        requireIsOperational
+        returns (bytes32[] memory)
+    {
+        bytes32[] memory fNumbers = new bytes32[](flightKeys.length);
+        for (uint256 i = 0; i < flightKeys.length; i++) {
+            fNumbers[i] = flights[flightKeys[i]].flightNumber;
+        }
+        return fNumbers;
     }
 
     /********************************************************************************************/
@@ -155,7 +182,7 @@ contract FlightSuretyData {
         requireIsOperational
         requireCallerAuthorized
     {
-        totalAirlines.add(1);
+        totalAirlines = totalAirlines.add(1);
         airlines[airlineAddress] = Airline(airlineAddress, true, false);
         emit AirlineRegistered(airlineAddress);
     }
@@ -169,30 +196,46 @@ contract FlightSuretyData {
         public
         payable
         requireIsOperational
+        requireCallerAuthorized
     {
         airlineBalances[airlineAddress] = airlineBalances[airlineAddress].add(
             amount
         );
-        airlines[airlineAddress].isFunded = true;
+
+        if (airlineBalances[airlineAddress] >= 10) {
+            airlines[airlineAddress].isFunded = true;
+        } else {
+            airlines[airlineAddress].isFunded = false;
+        }
+
         emit AirlineFunded(airlineAddress, amount);
     }
 
-    function voteAirline(address airlineAddress, address voterAddress)
-        external
-    {
-        bool hasVoted = false;
+    function registerFlight(
+        address airlineAddress,
+        bytes32 flightNumber,
+        uint256 flightTime,
+        uint8 flightStatus
+    ) external requireIsOperational requireCallerAuthorized {
+        bytes32 flightKey = getFlightKey(
+            airlineAddress,
+            flightNumber,
+            flightTime
+        );
+        flights[flightKey] = Flight(
+            airlineAddress,
+            flightNumber,
+            flightTime,
+            flightStatus
+        );
+        flightKeys.push(flightKey);
 
-        for (uint256 i = 0; i < airlineVotes[airlineAddress].length; i++) {
-            if (airlineVotes[airlineAddress][i] == voterAddress) {
-                hasVoted = true;
-                break;
-            }
-        }
-
-        if (!hasVoted) {
-            airlineVotes[airlineAddress].push(voterAddress);
-            emit AirlineVoted(airlineAddress, voterAddress);
-        }
+        emit FlightRegistered(
+            airlineAddress,
+            flightNumber,
+            flightTime,
+            flightStatus
+        );
     }
 
     /**
@@ -214,10 +257,10 @@ contract FlightSuretyData {
 
     function getFlightKey(
         address airline,
-        string memory flight,
-        uint256 timestamp
+        bytes32 flightNumber,
+        uint256 flightTime
     ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(airline, flight, timestamp));
+        return keccak256(abi.encodePacked(airline, flightNumber, flightTime));
     }
 
     /**

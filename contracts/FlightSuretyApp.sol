@@ -30,13 +30,6 @@ contract FlightSuretyApp {
     address private contractOwner; // Account used to deploy contract
     bool private operational = true; // Status of the contract
 
-    struct Flight {
-        bool isRegistered;
-        uint8 statusCode;
-        uint256 updatedTimestamp;
-        address airline;
-    }
-    mapping(bytes32 => Flight) private flights;
     mapping(address => address[]) private airlineVotes;
 
     FlightSuretyData internal dataContract;
@@ -95,8 +88,14 @@ contract FlightSuretyApp {
     /*                                       EVENT DEFINITIONS                                  */
     /********************************************************************************************/
 
-    event AirlineRegistered(address airlineAddress);
+    event AirlineRegistered(bool success, uint256 votes);
     event AirlineFunded(address airlineAddress, uint256 amount);
+    event FlightRegistered(
+        address airlineAddress,
+        bytes32 flightNumber,
+        uint256 flightTime,
+        uint8 flightStatus
+    );
 
     /********************************************************************************************/
     /*                                       CONSTRUCTOR                                        */
@@ -133,6 +132,15 @@ contract FlightSuretyApp {
         return dataContract.getNumberOfAirlines();
     }
 
+    function getFlightNumbers()
+        external
+        view
+        requireIsOperational
+        returns (bytes32[] memory)
+    {
+        return dataContract.getFlightNumbers();
+    }
+
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
@@ -146,12 +154,16 @@ contract FlightSuretyApp {
         requireIsOperational
         requireAirlineRegistered
         requireAirlineFunded
+        returns (bool success, uint256 votes)
     {
+        success = false;
+        votes = 0;
+
         // get the actual number of airlines
         uint256 numberOfAirlines = dataContract.getNumberOfAirlines();
         if (AIRLINE_CONSENSUS > numberOfAirlines) {
             dataContract.registerAirline(airlineAddress);
-            emit AirlineRegistered(airlineAddress);
+            success = true;
         } else {
             // check votes for new airline
             bool hasVoted = false;
@@ -177,10 +189,13 @@ contract FlightSuretyApp {
                 requiredVotes = requiredVotes.add(1);
             }
 
-            if (airlineVotes[airlineAddress].length >= requiredVotes) {
+            votes = airlineVotes[airlineAddress].length;
+            if (votes >= requiredVotes) {
                 dataContract.registerAirline(airlineAddress);
-                emit AirlineRegistered(airlineAddress);
+                success = true;
             }
+
+            emit AirlineRegistered(success, votes);
         }
     }
 
@@ -203,7 +218,25 @@ contract FlightSuretyApp {
      * @dev Register a future flight for insuring.
      *
      */
-    function registerFlight() external pure {}
+    function registerFlight(bytes32 flightNumber, uint256 flightTime)
+        external
+        requireIsOperational
+        requireAirlineRegistered
+        requireAirlineFunded
+    {
+        dataContract.registerFlight(
+            msg.sender,
+            flightNumber,
+            flightTime,
+            STATUS_CODE_UNKNOWN
+        );
+        emit FlightRegistered(
+            msg.sender,
+            flightNumber,
+            flightTime,
+            STATUS_CODE_UNKNOWN
+        );
+    }
 
     /**
      * @dev Called after oracle has updated flight status
@@ -412,6 +445,13 @@ contract FlightSuretyData {
 
     function fundAirline(address airlineAddress, uint256 amount) external;
 
+    function registerFlight(
+        address airlineAddress,
+        bytes32 flightNumber,
+        uint256 flightTime,
+        uint8 flightStatus
+    ) external;
+
     function isAirlineRegistered(address airlineAddress)
         external
         view
@@ -423,4 +463,6 @@ contract FlightSuretyData {
         returns (bool);
 
     function getNumberOfAirlines() external view returns (uint256);
+
+    function getFlightNumbers() external view returns (bytes32[] memory);
 }

@@ -12,7 +12,6 @@ const App = {
 
   start: async function () {
     const { web3 } = this;
-
     try {
       // get contract instance
       const networkId = await web3.eth.net.getId();
@@ -26,16 +25,26 @@ const App = {
       this.bindEvents();
       this.isOperational();
       this.getNumberOfAirlines();
+      this.meta.events.allEvents(
+        {
+          fromBlock: 'latest',
+        },
+        async (err, event) => {
+          console.log(err, event);
+        }
+      );
     } catch (error) {
       console.error('Could not connect to contract or chain.');
     }
   },
 
   bindEvents: function () {
+    const { isOperational, registerAirline, registerFlight, fundAirline, getFlightNumbers, getNumberOfAirlines } =
+      this.meta.methods;
     DOM.elid('airline-register-submit').addEventListener('click', async () => {
       const airlineAddress = DOM.elid('airline-register-address').value;
       try {
-        await App.registerAirline(airlineAddress);
+        await registerAirline(airlineAddress).send({ from: this.account });
       } catch (err) {
         console.log(err);
       }
@@ -44,7 +53,23 @@ const App = {
     DOM.elid('airline-fund-submit').addEventListener('click', async () => {
       const amount = DOM.elid('airline-fund-amount').value;
       try {
-        await App.fundAirline(amount);
+        await fundAirline().send({
+          from: this.account,
+          value: this.web3.utils.toWei(amount, 'ether'),
+        });
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    DOM.elid('flight-register-submit').addEventListener('click', async () => {
+      const flightNumber = DOM.elid('flight-register-number').value;
+      const flightTime = DOM.elid('flight-register-time').value;
+      try {
+        if (flightNumber) {
+          const fNumber = this.web3.utils.fromAscii(flightNumber);
+          await registerFlight(fNumber, flightTime).send();
+        }
       } catch (err) {
         console.log(err);
       }
@@ -54,27 +79,11 @@ const App = {
   isOperational: async function () {
     const { isOperational } = this.meta.methods;
     const result = await isOperational().call({ from: this.account });
-    console.log('IsOperational: ', result);
-    if (result) {
-    }
-  },
-
-  registerAirline: async function (airlineAddress) {
-    const { registerAirline } = this.meta.methods;
-    const result = await registerAirline(airlineAddress);
-  },
-
-  fundAirline: async function (amount) {
-    const { fundAirline } = this.meta.methods;
-    const result = await fundAirline().send({
-      from: this.account,
-      value: this.web3.utils.toWei(amount, 'ether'),
-    });
   },
 
   getNumberOfAirlines: async function () {
     const { getNumberOfAirlines } = this.meta.methods;
-    const result = await getNumberOfAirlines();
+    const result = await getNumberOfAirlines().call();
     console.log('Number of Airlines: ', result);
   },
 };
