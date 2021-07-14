@@ -1,5 +1,6 @@
 import Web3 from 'web3';
 import FlightSuretyApp from '../../build/contracts/FlightSuretyApp.json';
+import FlightSuretyData from '../../build/contracts/FlightSuretyData.json';
 import DOM from './dom';
 import Contract from './contract';
 import './flightsurety.css';
@@ -7,7 +8,8 @@ import './flightsurety.css';
 const App = {
   web3: null,
   account: null,
-  meta: null,
+  appContract: null,
+  dataContract: null,
   numberOfAirlines: 0,
 
   start: async function () {
@@ -16,7 +18,8 @@ const App = {
       // get contract instance
       const networkId = await web3.eth.net.getId();
       const deployedNetwork = FlightSuretyApp.networks[networkId];
-      this.meta = new web3.eth.Contract(FlightSuretyApp.abi, deployedNetwork.address);
+      this.appContract = new web3.eth.Contract(FlightSuretyApp.abi, deployedNetwork.address);
+      this.dataContract = new web3.eth.Contract(FlightSuretyData.abi, '0x606Ce53057f9A22d4b0764660A0B04909D421214');
 
       // get accounts
       const accounts = await web3.eth.getAccounts();
@@ -25,7 +28,7 @@ const App = {
       this.bindEvents();
       this.isOperational();
       this.getNumberOfAirlines();
-      this.meta.events.allEvents(
+      this.appContract.events.allEvents(
         {
           fromBlock: 'latest',
         },
@@ -40,7 +43,19 @@ const App = {
 
   bindEvents: function () {
     const { isOperational, registerAirline, registerFlight, fundAirline, getFlightNumbers, getNumberOfAirlines } =
-      this.meta.methods;
+      this.appContract.methods;
+
+    DOM.elid('owner-authorize-submit').addEventListener('click', async () => {
+      const { authorizeCaller } = this.dataContract.methods;
+      const appContractAddress = DOM.elid('owner-app-contract-address').value;
+      console.log(this.account, appContractAddress);
+      try {
+        await authorizeCaller(appContractAddress).send({ from: this.account });
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
     DOM.elid('airline-register-submit').addEventListener('click', async () => {
       const airlineAddress = DOM.elid('airline-register-address').value;
       try {
@@ -68,7 +83,7 @@ const App = {
       try {
         if (flightNumber) {
           const fNumber = this.web3.utils.fromAscii(flightNumber);
-          await registerFlight(fNumber, flightTime).send();
+          await registerFlight(fNumber, flightTime).send({ from: this.account });
         }
       } catch (err) {
         console.log(err);
@@ -77,12 +92,12 @@ const App = {
   },
 
   isOperational: async function () {
-    const { isOperational } = this.meta.methods;
+    const { isOperational } = this.appContract.methods;
     const result = await isOperational().call({ from: this.account });
   },
 
   getNumberOfAirlines: async function () {
-    const { getNumberOfAirlines } = this.meta.methods;
+    const { getNumberOfAirlines } = this.appContract.methods;
     const result = await getNumberOfAirlines().call();
     console.log('Number of Airlines: ', result);
   },
@@ -92,7 +107,7 @@ window.App = App;
 
 window.addEventListener('load', function () {
   if (window.ethereum) {
-    // use MetaMask's provider
+    // use appContractMask's provider
     App.web3 = new Web3(window.ethereum);
     window.ethereum.enable(); // get permission to access accounts
   } else {

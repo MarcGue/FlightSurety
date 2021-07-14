@@ -6,6 +6,7 @@ module.exports = async (deployer) => {
   let firstAirline = '0xD0637B3A7035225BeD46f95eEFaC0D9b296972E8';
   await deployer.deploy(FlightSuretyData, firstAirline);
   await deployer.deploy(FlightSuretyApp, FlightSuretyData.address);
+
   let config = {
     localhost: {
       url: 'http://localhost:8545',
