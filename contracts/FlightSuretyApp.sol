@@ -84,6 +84,16 @@ contract FlightSuretyApp {
         _;
     }
 
+    modifier requireFlightExists(bytes32 flightKey) {
+        require(dataContract.flightExists(flightKey));
+        _;
+    }
+
+    modifier requireIsInsurable(bytes32 flightNumber) {
+        require(dataContract.isInsurable(flightNumber, msg.sender));
+        _;
+    }
+
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
     /********************************************************************************************/
@@ -95,6 +105,11 @@ contract FlightSuretyApp {
         bytes32 flightNumber,
         uint256 flightTime,
         uint8 flightStatus
+    );
+    event InsurancePurchased(
+        address insureeAddress,
+        bytes32 flightNumber,
+        uint256 amount
     );
 
     /********************************************************************************************/
@@ -238,6 +253,24 @@ contract FlightSuretyApp {
         );
     }
 
+    function buyInsurance(bytes32 flightNumber)
+        external
+        payable
+        requireIsOperational
+        requireIsInsurable(flightNumber)
+        requireFlightExists(flightNumber)
+    {
+        require(msg.value > 0, "You must provide some value");
+        require(msg.value <= 1 ether, "You can only pay up to 1 Ether");
+
+        address payable dataContractAddress = address(
+            uint160(address(dataContract))
+        );
+        dataContractAddress.transfer(msg.value);
+        dataContract.buy(flightNumber, msg.sender, msg.value);
+        emit InsurancePurchased(msg.sender, flightNumber, msg.value);
+    }
+
     /**
      * @dev Called after oracle has updated flight status
      *
@@ -250,23 +283,31 @@ contract FlightSuretyApp {
     ) internal pure {}
 
     // Generate a request for oracles to fetch flight information
-    function fetchFlightStatus(
-        address airline,
-        string calldata flight,
-        uint256 timestamp
-    ) external {
+    function fetchFlightStatus(bytes32 flightNumber)
+        external
+        requireIsOperational
+        requireContractOwner
+    {
+        address airlineAddress;
+        bytes32 fNumber;
+        uint256 flightTime;
+        uint8 flightStatus;
+
+        (airlineAddress, fNumber, flightTime, flightStatus) = dataContract
+        .getFlight(flightNumber);
+
         uint8 index = getRandomIndex(msg.sender);
 
         // Generate a unique key for storing the request
         bytes32 key = keccak256(
-            abi.encodePacked(index, airline, flight, timestamp)
+            abi.encodePacked(index, airlineAddress, fNumber, flightTime)
         );
         oracleResponses[key] = ResponseInfo({
             requester: msg.sender,
             isOpen: true
         });
 
-        emit OracleRequest(index, airline, flight, timestamp);
+        emit OracleRequest(index, airlineAddress, fNumber, flightTime);
     }
 
     // region ORACLE MANAGEMENT
@@ -321,9 +362,9 @@ contract FlightSuretyApp {
     // they fetch data and submit a response
     event OracleRequest(
         uint8 index,
-        address airline,
-        string flight,
-        uint256 timestamp
+        address airlineAddress,
+        bytes32 flightNumber,
+        uint256 flightTime
     );
 
     // Register an oracle with the contract
@@ -445,6 +486,12 @@ contract FlightSuretyData {
 
     function fundAirline(address airlineAddress, uint256 amount) external;
 
+    function buy(
+        bytes32 flightKey,
+        address insureeAddress,
+        uint256 amount
+    ) external;
+
     function registerFlight(
         address airlineAddress,
         bytes32 flightNumber,
@@ -462,7 +509,24 @@ contract FlightSuretyData {
         view
         returns (bool);
 
+    function isInsurable(bytes32 flightNumber, address insureeAddress)
+        external
+        view
+        returns (bool);
+
+    function flightExists(bytes32 flightNumber) external view returns (bool);
+
     function getNumberOfAirlines() external view returns (uint256);
 
     function getFlightNumbers() external view returns (bytes32[] memory);
+
+    function getFlight(bytes32 flightNumber)
+        external
+        view
+        returns (
+            address,
+            bytes32,
+            uint256,
+            uint8
+        );
 }

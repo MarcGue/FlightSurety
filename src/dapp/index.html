@@ -37,14 +37,10 @@
         <h2>Owner</h2>
         <h5>AuthorizeCaller</h5>
         <div class="form-group">
-          <label>AppContract Address</label>
+          <label>Caller Address</label>
           <input class="form-control" type="text" placeholder="0x..." id="owner-app-contract-address" />
         </div>
-        <div class="form-group">
-          <label>DataContract Address</label>
-          <input class="form-control" type="text" placeholder="0x..." id="owner-data-contract-address" />
-        </div>
-        <button class="btn btn-primary" id="owner-authorize-submit">Register Airline</button>
+        <button class="btn btn-primary" id="owner-authorize-submit">AuthorizeCaller</button>
       </section>
       <section>
         <h2>Airlines</h2>
@@ -74,6 +70,65 @@
           <input class="form-control" type="text" placeholder="" id="flight-register-time" value="1626033899288" />
         </div>
         <button class="btn btn-primary" id="flight-register-submit">Register Flight</button>
+      </section>
+      <section>
+        <h2>Insurance</h2>
+        <h5 class="mt-4">Purchase Insurance</h5>
+        <div class="form-group">
+          <label>Flight Number</label>
+          <div class="form-row">
+            <div class="col">
+              <select class="custom-select" id="insurance-flights-select"></select>
+            </div>
+            <div class="col-auto">
+              <button class="btn btn-primary" id="insurance-flights-refresh">Refresh Flights</button>
+            </div>
+          </div>
+        </div>
+        <!-- <div class="form-group">
+          <label>Flight Time</label>
+          <input class="form-control" type="text" id="insurance-flights-flight-time" readonly />
+        </div>
+        <div class="form-group">
+          <label>Flight Status</label>
+          <input class="form-control" type="text" id="insurance-flights-flight-status" readonly />
+        </div> -->
+        <div class="form-group">
+          <label>Insurance Amount</label>
+          <div class="input-group">
+            <input class="form-control mr-0" type="number" placeholder="xx" id="insurance-flights-amount" />
+            <div class="input-group-append">
+              <button class="btn btn-secondary" type="button" disabled>Ether</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="insurance-buy-submit">Buy Insurance</button>
+      </section>
+      <section>
+        <h2>Oracle</h2>
+        <h5 class="mt-4">Flights</h5>
+        <div class="form-group">
+          <label>Flight Number</label>
+          <div class="form-row">
+            <div class="col">
+              <select class="custom-select" id="oracle-flights-select"></select>
+            </div>
+            <div class="col-auto">
+              <button class="btn btn-primary" id="oracle-flights-refresh">Refresh Flights</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Flight Status</label>
+          <input class="form-control" type="text" id="oracle-flights-flight-status" readonly />
+        </div>
+        <button class="btn btn-primary" id="oracle-flights-check-submit">Check Flight Status</button>
+        <h5 class="mt-4">Payout</h5>
+        <div class="form-group">
+          <label>Amount</label>
+          <input class="form-control" type="text" id="oracle-payout" />
+        </div>
+        <button class="btn btn-primary" id="oracle-payout-submit">Withdraw</button>
       </section>
     </main>
   </body>

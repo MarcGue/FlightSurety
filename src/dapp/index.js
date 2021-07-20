@@ -18,8 +18,9 @@ const App = {
       // get contract instance
       const networkId = await web3.eth.net.getId();
       const deployedNetwork = FlightSuretyApp.networks[networkId];
+      const deployedDataNetwork = FlightSuretyData.networks[networkId];
       this.appContract = new web3.eth.Contract(FlightSuretyApp.abi, deployedNetwork.address);
-      this.dataContract = new web3.eth.Contract(FlightSuretyData.abi, '0x606Ce53057f9A22d4b0764660A0B04909D421214');
+      this.dataContract = new web3.eth.Contract(FlightSuretyData.abi, deployedDataNetwork.address);
 
       // get accounts
       const accounts = await web3.eth.getAccounts();
@@ -36,14 +37,25 @@ const App = {
           console.log(err, event);
         }
       );
+
+      DOM.elid('owner-app-contract-address').value = deployedNetwork.address;
     } catch (error) {
+      console.log(error);
       console.error('Could not connect to contract or chain.');
     }
   },
 
   bindEvents: function () {
-    const { isOperational, registerAirline, registerFlight, fundAirline, getFlightNumbers, getNumberOfAirlines } =
-      this.appContract.methods;
+    const {
+      isOperational,
+      registerAirline,
+      registerFlight,
+      fundAirline,
+      getFlightNumbers,
+      getNumberOfAirlines,
+      buyInsurance,
+      fetchFlightStatus,
+    } = this.appContract.methods;
 
     DOM.elid('owner-authorize-submit').addEventListener('click', async () => {
       const { authorizeCaller } = this.dataContract.methods;
@@ -88,6 +100,73 @@ const App = {
       } catch (err) {
         console.log(err);
       }
+    });
+
+    DOM.elid('insurance-flights-refresh').addEventListener('click', async () => {
+      try {
+        const selectELement = DOM.elid('insurance-flights-select');
+        const childs = selectELement.childNodes;
+        childs.forEach((child) => selectELement.removeChild(child));
+        const flightNumbers = await getFlightNumbers().call({ from: this.account });
+        flightNumbers.forEach((flight) => {
+          console.log(flight);
+          const convertedFlight = this.web3.utils.toUtf8(flight);
+          selectELement.appendChild(DOM.option({ value: convertedFlight }, convertedFlight));
+        });
+        if (flightNumbers.length > 0) {
+          selectELement.value = this.web3.utils.toUtf8(flightNumbers[0]);
+          selectELement.dispatchEvent(new Event('change'));
+        }
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    // DOM.elid('insurance-flights-select').addEventListener('change', async () => {
+    //   console.log(DOM.elid('insurance-flights-select').value);
+    // });
+
+    DOM.elid('insurance-buy-submit').addEventListener('click', async () => {
+      try {
+        const flightKey = DOM.elid('insurance-flights-select').value;
+        const amount = DOM.elid('insurance-flights-amount').value;
+        console.log('### Buy Insurance: ', this.web3.utils.fromAscii(flightKey));
+        const result = await buyInsurance(this.web3.utils.fromAscii(flightKey)).send({
+          from: this.account,
+          value: this.web3.utils.toWei(amount, 'ether'),
+        });
+        console.log(result);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    DOM.elid('oracle-flights-refresh').addEventListener('click', async () => {
+      const selectElement = DOM.elid('oracle-flights-select');
+      const childs = selectElement.childNodes;
+      childs.forEach((child) => selectElement.removeChild(child));
+      const flightNumbers = await getFlightNumbers().call({ from: this.account });
+      flightNumbers.forEach((flight) => {
+        console.log(flight);
+        const convertedFlight = this.web3.utils.toUtf8(flight);
+        selectElement.appendChild(DOM.option({ value: convertedFlight }, convertedFlight));
+      });
+      if (flightNumbers.length > 0) {
+        selectElement.value = this.web3.utils.toUtf8(flightNumbers[0]);
+        selectElement.dispatchEvent(new Event('change'));
+      }
+    });
+
+    DOM.elid('oracle-flights-select').addEventListener('change', async () => {
+      // TODO get flight info
+    });
+
+    DOM.elid('oracle-flights-check-submit').addEventListener('click', async () => {
+      const selectedFlightNumber = DOM.elid('oracle-flights-select').value;
+      const result = await fetchFlightStatus(this.web3.utils.fromAscii(selectedFlightNumber)).send({
+        from: this.account,
+      });
+      console.log(result);
     });
   },
 

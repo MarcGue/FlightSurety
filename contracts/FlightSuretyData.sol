@@ -24,13 +24,23 @@ contract FlightSuretyData {
     mapping(address => uint256) private airlineBalances; // Balance for each airline
 
     struct Flight {
-        address airlineAdress;
+        address airlineAddress;
         bytes32 flightNumber;
         uint256 flightTime;
         uint8 flightStatus;
     }
     bytes32[] private flightKeys;
     mapping(bytes32 => Flight) private flights;
+
+    struct Insurance {
+        address insureeAddress;
+        uint256 amount;
+        address airlineAddress;
+        bytes32 flightNumber;
+        bool paid;
+    }
+    mapping(bytes32 => Insurance[]) private insurances;
+    mapping(address => uint256) private insureeBalances;
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -45,6 +55,12 @@ contract FlightSuretyData {
         bytes32 flightNumber,
         uint256 flightTime,
         uint8 flightStatus
+    );
+    event InsurancePurchased(
+        address insureeAddress,
+        uint256 amount,
+        address airlineAddress,
+        bytes32 flightNumber
     );
 
     /**
@@ -168,6 +184,81 @@ contract FlightSuretyData {
         return fNumbers;
     }
 
+    function isInsurable(bytes32 flightNumber, address insureeAddress)
+        external
+        view
+        requireIsOperational
+        returns (bool)
+    {
+        bool retVal = true;
+        bytes32 flightKey = getFlightKey(flightNumber);
+        Insurance[] memory insurancesOfFlight = insurances[flightKey];
+        for (uint256 i = 0; i < insurancesOfFlight.length; i++) {
+            if (insurancesOfFlight[i].insureeAddress == insureeAddress) {
+                retVal = false;
+                break;
+            }
+        }
+        return retVal;
+    }
+
+    function flightExists(bytes32 flightNumber)
+        external
+        view
+        requireIsOperational
+        returns (bool)
+    {
+        bytes32 flightKey = getFlightKey(flightNumber);
+        Flight memory flight = flights[flightKey];
+        return flight.airlineAddress != address(0);
+    }
+
+    function getFlight(bytes32 flightNumber)
+        external
+        view
+        returns (
+            address,
+            bytes32,
+            uint256,
+            uint8
+        )
+    {
+        bytes32 flightKey = getFlightKey(flightNumber);
+        Flight memory flight = flights[flightKey];
+        return (
+            flight.airlineAddress,
+            flight.flightNumber,
+            flight.flightTime,
+            flight.flightStatus
+        );
+    }
+
+    function getInsureeBalances(address insureeAddress)
+        external
+        view
+        requireCallerAuthorized
+        returns (uint256)
+    {
+        return insureeBalances[insureeAddress];
+    }
+
+    function getAirlineBalances(address airlineAddress)
+        external
+        view
+        requireCallerAuthorized
+        returns (uint256)
+    {
+        return airlineBalances[airlineAddress];
+    }
+
+    function getFlightKey(bytes32 flightNumber) private view returns (bytes32) {
+        for (uint8 i = 0; i < flightKeys.length; i++) {
+            if (flights[flightKeys[i]].flightNumber == flightNumber) {
+                return flightKeys[i];
+            }
+        }
+    }
+
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
@@ -242,12 +333,67 @@ contract FlightSuretyData {
      * @dev Buy insurance for a flight
      *
      */
-    function buy() external payable {}
+    function buy(
+        bytes32 flightNumber,
+        address insureeAddress,
+        uint256 amount
+    ) external requireIsOperational requireCallerAuthorized {
+        bytes32 flightKey = getFlightKey(flightNumber);
+        Flight memory flight = flights[flightKey];
+
+        airlineBalances[flight.airlineAddress] = airlineBalances[
+            flight.airlineAddress
+        ]
+        .add(amount);
+
+        Insurance memory insurance = Insurance(
+            insureeAddress,
+            amount,
+            flight.airlineAddress,
+            flight.flightNumber,
+            false
+        );
+        insurances[flightKey].push(insurance);
+
+        emit InsurancePurchased(
+            insureeAddress,
+            amount,
+            flight.airlineAddress,
+            flight.flightNumber
+        );
+    }
 
     /**
      *  @dev Credits payouts to insurees
      */
-    function creditInsurees() external pure {}
+    function creditInsurees(bytes32 flightNumber, address insureeAddress)
+        external
+        requireIsOperational
+        requireCallerAuthorized
+    {
+        bytes32 flightKey = getFlightKey(flightNumber);
+        Insurance[] memory insurancesOfFlight = insurances[flightKey];
+        for (uint256 i = 0; i < insurancesOfFlight.length; i++) {
+            Insurance memory insurance = insurancesOfFlight[i];
+            if (
+                insurance.insureeAddress == insureeAddress &&
+                insurance.flightNumber == flightNumber &&
+                insurance.paid == false
+            ) {
+                uint256 amountToCredit = insurance.amount.mul(150).div(100);
+                insureeBalances[insureeAddress] = insureeBalances[
+                    insureeAddress
+                ]
+                .add(amountToCredit);
+                insurance.paid = true;
+                airlineBalances[insurance.airlineAddress] = airlineBalances[
+                    insurance.airlineAddress
+                ]
+                .sub(amountToCredit);
+                break;
+            }
+        }
+    }
 
     /**
      *  @dev Transfers eligible payout funds to insuree

@@ -190,4 +190,19 @@ contract('Flight Surety Tests', async (accounts) => {
     const result = await config.flightSuretyData.getFlightNumbers();
     assert.equal(web3.utils.hexToUtf8(result[0]), web3.utils.hexToUtf8(flightNumber), 'Flight was not registered');
   });
+
+  it('(passenger) can buy an insurance', async () => {
+    const passenger = accounts[6];
+    const flightNumber = web3.utils.utf8ToHex('LH0001');
+    const amount = web3.utils.toWei('1', 'ether');
+
+    try {
+      await config.flightSuretyApp.buyInsurance(flightNumber, { from: passenger, value: amount });
+    } catch (err) {
+      console.log(err);
+    }
+
+    const result = await config.flightSuretyData.isInsurable(flightNumber, passenger);
+    assert.equal(result, false, 'Inuree is insurable');
+  });
 });
