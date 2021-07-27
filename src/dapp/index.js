@@ -184,8 +184,6 @@ const App = {
       });
       console.log(result);
     });
-
-    DOM.elid('');
   },
 
   isOperational: async function () {
