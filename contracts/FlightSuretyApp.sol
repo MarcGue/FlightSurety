@@ -156,6 +156,15 @@ contract FlightSuretyApp {
         return dataContract.getFlightNumbers();
     }
 
+    function getInsureeBalance()
+        external
+        view
+        requireIsOperational
+        returns (uint256)
+    {
+        return dataContract.getInsureeBalance(msg.sender);
+    }
+
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
@@ -276,11 +285,23 @@ contract FlightSuretyApp {
      *
      */
     function processFlightStatus(
-        address airline,
-        string memory flight,
-        uint256 timestamp,
+        bytes32 oracleKey,
+        address airlineAddress,
+        bytes32 flightNumber,
+        uint256 flightTime,
         uint8 statusCode
-    ) internal pure {}
+    ) internal {
+        if (statusCode == STATUS_CODE_LATE_AIRLINE) {
+            bytes32 flightKey = getFlightKey(
+                airlineAddress,
+                flightNumber,
+                flightTime
+            );
+            dataContract.creditInsurees(flightKey);
+            dataContract.setFlightStatus(flightKey, statusCode);
+            oracleResponses[oracleKey].isOpen = false;
+        }
+    }
 
     // Generate a request for oracles to fetch flight information
     function fetchFlightStatus(bytes32 flightNumber)
@@ -345,15 +366,15 @@ contract FlightSuretyApp {
     // Event fired each time an oracle submits a response
     event FlightStatusInfo(
         address airline,
-        string flight,
-        uint256 timestamp,
+        bytes32 flightNumber,
+        uint256 flightTime,
         uint8 status
     );
 
     event OracleReport(
         address airline,
-        string flight,
-        uint256 timestamp,
+        bytes32 flightNumber,
+        uint256 flightTime,
         uint8 status
     );
 
@@ -377,7 +398,12 @@ contract FlightSuretyApp {
         oracles[msg.sender] = Oracle({isRegistered: true, indexes: indexes});
     }
 
-    function getMyIndexes() external view returns (uint8[3] memory) {
+    function getMyIndexes()
+        external
+        view
+        requireIsOperational
+        returns (uint8[3] memory)
+    {
         require(
             oracles[msg.sender].isRegistered,
             "Not registered as an oracle"
@@ -393,10 +419,10 @@ contract FlightSuretyApp {
     function submitOracleResponse(
         uint8 index,
         address airline,
-        string calldata flight,
+        bytes32 flight,
         uint256 timestamp,
         uint8 statusCode
-    ) external {
+    ) external requireIsOperational {
         require(
             (oracles[msg.sender].indexes[0] == index) ||
                 (oracles[msg.sender].indexes[1] == index) ||
@@ -423,16 +449,18 @@ contract FlightSuretyApp {
             emit FlightStatusInfo(airline, flight, timestamp, statusCode);
 
             // Handle flight status as appropriate
-            processFlightStatus(airline, flight, timestamp, statusCode);
+            processFlightStatus(key, airline, flight, timestamp, statusCode);
         }
     }
 
+    function pay() external pure {}
+
     function getFlightKey(
         address airline,
-        string memory flight,
+        bytes32 flightNumber,
         uint256 timestamp
     ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(airline, flight, timestamp));
+        return keccak256(abi.encodePacked(airline, flightNumber, timestamp));
     }
 
     // Returns array of three non-duplicating integers from 0-9
@@ -499,6 +527,12 @@ contract FlightSuretyData {
         uint8 flightStatus
     ) external;
 
+    function creditInsurees(bytes32 flightKey) external;
+
+    function pay(address insureeAddress, uint256 amount) external;
+
+    function setFlightStatus(bytes32 flightKey, uint8 flightStatus) external;
+
     function isAirlineRegistered(address airlineAddress)
         external
         view
@@ -529,4 +563,9 @@ contract FlightSuretyData {
             uint256,
             uint8
         );
+
+    function getInsureeBalance(address insureeAddress)
+        external
+        view
+        returns (uint256);
 }

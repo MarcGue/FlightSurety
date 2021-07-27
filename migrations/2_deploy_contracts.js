@@ -3,7 +3,7 @@ const FlightSuretyData = artifacts.require('FlightSuretyData');
 const fs = require('fs');
 
 module.exports = async (deployer) => {
-  let firstAirline = '0xD0637B3A7035225BeD46f95eEFaC0D9b296972E8';
+  let firstAirline = '0xcC77A6BDd552c69e4c88cd5d9bb26E28126C00Ae';
   await deployer.deploy(FlightSuretyData, firstAirline);
   await deployer.deploy(FlightSuretyApp, FlightSuretyData.address);
 

@@ -28,11 +28,6 @@
     </nav>
 
     <main class="container">
-      <div id="display-wrapper" class="top-20"></div>
-      <div class="row top-20">
-        <label class="form">Flight</label> <input type="text" id="flight-number" />
-        <btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>
-      </div>
       <section>
         <h2>Owner</h2>
         <h5>AuthorizeCaller</h5>
@@ -41,6 +36,48 @@
           <input class="form-control" type="text" placeholder="0x..." id="owner-app-contract-address" />
         </div>
         <button class="btn btn-primary" id="owner-authorize-submit">AuthorizeCaller</button>
+
+        <h5 class="mt-4">AppContract Status</h5>
+        <div class="custom-control custom-radio">
+          <input
+            type="radio"
+            id="isAppContractOperational"
+            name="isAppContractOperational"
+            class="custom-control-input"
+          />
+          <label class="custom-control-label" for="isAppContractOperational">Is Operational</label>
+        </div>
+        <div class="custom-control custom-radio">
+          <input
+            type="radio"
+            id="isAppContractNotOperational"
+            name="isAppContractOperational"
+            class="custom-control-input"
+          />
+          <label class="custom-control-label" for="isAppContractNotOperational">Is Not Operational</label>
+        </div>
+        <button class="btn btn-primary mt-3" id="setAppContractStatus">Set AppContract Status</button>
+
+        <h5 class="mt-4">DataContract Status</h5>
+        <div class="custom-control custom-radio">
+          <input
+            type="radio"
+            id="isDataContractOperational"
+            name="isDataContractOperational"
+            class="custom-control-input"
+          />
+          <label class="custom-control-label" for="isDataContractOperational">Is Operational</label>
+        </div>
+        <div class="custom-control custom-radio">
+          <input
+            type="radio"
+            id="isDataContractNotOperational"
+            name="isDataContractOperational"
+            class="custom-control-input"
+          />
+          <label class="custom-control-label" for="isDataContractNotOperational">Is Not Operational</label>
+        </div>
+        <button class="btn btn-primary mt-3" id="setDataContractStatus">Set DataContract Status</button>
       </section>
       <section>
         <h2>Airlines</h2>

@@ -126,6 +126,7 @@ contract FlightSuretyData {
      * When operational mode is disabled, all write transactions except for this one will fail
      */
     function setOperatingStatus(bool mode) external requireContractOwner {
+        require(operational != mode, "Contract is already in this mode");
         operational = mode;
     }
 
@@ -233,7 +234,7 @@ contract FlightSuretyData {
         );
     }
 
-    function getInsureeBalances(address insureeAddress)
+    function getInsureeBalance(address insureeAddress)
         external
         view
         requireCallerAuthorized
@@ -257,6 +258,14 @@ contract FlightSuretyData {
                 return flightKeys[i];
             }
         }
+    }
+
+    function setFlightStatus(bytes32 flightKey, uint8 statusCode)
+        external
+        requireIsOperational
+        requireCallerAuthorized
+    {
+        flights[flightKey].flightStatus = statusCode;
     }
 
     /********************************************************************************************/
@@ -366,7 +375,7 @@ contract FlightSuretyData {
     /**
      *  @dev Credits payouts to insurees
      */
-    function creditInsurees(bytes32 flightNumber, address insureeAddress)
+    function creditInsurees(bytes32 flightNumber)
         external
         requireIsOperational
         requireCallerAuthorized
@@ -376,13 +385,12 @@ contract FlightSuretyData {
         for (uint256 i = 0; i < insurancesOfFlight.length; i++) {
             Insurance memory insurance = insurancesOfFlight[i];
             if (
-                insurance.insureeAddress == insureeAddress &&
                 insurance.flightNumber == flightNumber &&
                 insurance.paid == false
             ) {
                 uint256 amountToCredit = insurance.amount.mul(150).div(100);
-                insureeBalances[insureeAddress] = insureeBalances[
-                    insureeAddress
+                insureeBalances[insurance.insureeAddress] = insureeBalances[
+                    insurance.insureeAddress
                 ]
                 .add(amountToCredit);
                 insurance.paid = true;
@@ -399,7 +407,24 @@ contract FlightSuretyData {
      *  @dev Transfers eligible payout funds to insuree
      *
      */
-    function pay() external pure {}
+    function pay(address insureeAddress, uint256 amount)
+        external
+        requireIsOperational
+        requireCallerAuthorized
+    {
+        require(
+            insureeBalances[insureeAddress] >= amount,
+            "Insufficient funds for given insuree"
+        );
+
+        address payable payableInsuree = address(
+            uint160(address(insureeAddress))
+        );
+        uint256 availableAmount = insureeBalances[insureeAddress];
+        uint256 updatedAmount = availableAmount.sub(amount);
+        insureeBalances[insureeAddress] = updatedAmount;
+        payableInsuree.transfer(amount);
+    }
 
     function getFlightKey(
         address airline,

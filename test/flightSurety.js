@@ -205,4 +205,30 @@ contract('Flight Surety Tests', async (accounts) => {
     const result = await config.flightSuretyData.isInsurable(flightNumber, passenger);
     assert.equal(result, false, 'Inuree is insurable');
   });
+
+  it('(oracle) credits insurees', async () => {
+    const oracle1 = accounts[7];
+    const oracle2 = accounts[8];
+    const oracle3 = accounts[9];
+    const fee = web3.utils.toWei('1', 'ether');
+    const flightNumber = web3.utils.utf8ToHex('LH0001');
+
+    try {
+      await config.flightSuretyApp.registerOracle({ from: oracle1, value: fee });
+      await config.flightSuretyApp.registerOracle({ from: oracle2, value: fee });
+      await config.flightSuretyApp.registerOracle({ from: oracle3, value: fee });
+    } catch (err) {
+      console.log('Could register oracle: ', err);
+    }
+
+    const result = await config.flightSuretyApp.fetchFlightStatus(flightNumber, { from: config.owner });
+
+    assert.equal(result.logs[0].event, 'OracleRequest', 'Event is not OracleRequest');
+    assert.equal(result.logs[0].args.airlineAddress, config.firstAirline, 'Airline is not firstAirline');
+    assert.equal(
+      web3.utils.hexToUtf8(result.logs[0].args.flightNumber),
+      web3.utils.hexToUtf8(flightNumber),
+      'FlightNumber is different'
+    );
+  });
 });

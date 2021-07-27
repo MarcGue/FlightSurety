@@ -28,7 +28,12 @@ const App = {
 
       this.bindEvents();
       this.isOperational();
-      this.getNumberOfAirlines();
+      try {
+        const iBalance = await this.appContract.methods.getInsureeBalance().call();
+        DOM.elid('oracle-payout').value = iBalance;
+      } catch (err) {
+        console.log(err);
+      }
       this.appContract.events.allEvents(
         {
           fromBlock: 'latest',
@@ -57,10 +62,29 @@ const App = {
       fetchFlightStatus,
     } = this.appContract.methods;
 
+    DOM.elid('setAppContractStatus').addEventListener('click', async () => {
+      const { setOperational } = this.appContract.methods;
+      const isAppContractOperational = DOM.elid('isAppContractOperational').checked;
+      try {
+        await setOperational(isAppContractOperational).send({ from: this.account });
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    DOM.elid('setDataContractStatus').addEventListener('click', async () => {
+      const { setOperatingStatus } = this.dataContract.methods;
+      const isDataContractOperational = DOM.elid('isDataContractOperational').checked;
+      try {
+        await setOperatingStatus(isDataContractOperational).send({ from: this.account });
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
     DOM.elid('owner-authorize-submit').addEventListener('click', async () => {
       const { authorizeCaller } = this.dataContract.methods;
       const appContractAddress = DOM.elid('owner-app-contract-address').value;
-      console.log(this.account, appContractAddress);
       try {
         await authorizeCaller(appContractAddress).send({ from: this.account });
       } catch (err) {
@@ -122,10 +146,6 @@ const App = {
       }
     });
 
-    // DOM.elid('insurance-flights-select').addEventListener('change', async () => {
-    //   console.log(DOM.elid('insurance-flights-select').value);
-    // });
-
     DOM.elid('insurance-buy-submit').addEventListener('click', async () => {
       try {
         const flightKey = DOM.elid('insurance-flights-select').value;
@@ -157,10 +177,6 @@ const App = {
       }
     });
 
-    DOM.elid('oracle-flights-select').addEventListener('change', async () => {
-      // TODO get flight info
-    });
-
     DOM.elid('oracle-flights-check-submit').addEventListener('click', async () => {
       const selectedFlightNumber = DOM.elid('oracle-flights-select').value;
       const result = await fetchFlightStatus(this.web3.utils.fromAscii(selectedFlightNumber)).send({
@@ -168,17 +184,28 @@ const App = {
       });
       console.log(result);
     });
+
+    DOM.elid('');
   },
 
   isOperational: async function () {
-    const { isOperational } = this.appContract.methods;
-    const result = await isOperational().call({ from: this.account });
-  },
+    const isAppContractOperationalElement = DOM.elid('isAppContractOperational');
+    const isAppContractNotOperationalElement = DOM.elid('isAppContractNotOperational');
+    const appContractResult = await this.appContract.methods.isOperational().call({ from: this.account });
+    if (appContractResult === true) {
+      isAppContractOperationalElement.checked = appContractResult;
+    } else {
+      isAppContractNotOperationalElement.checked = appContractResult;
+    }
 
-  getNumberOfAirlines: async function () {
-    const { getNumberOfAirlines } = this.appContract.methods;
-    const result = await getNumberOfAirlines().call();
-    console.log('Number of Airlines: ', result);
+    const isDataContractOperationalElement = DOM.elid('isDataContractOperational');
+    const isDataContractNotOperationalElement = DOM.elid('isDataContractNotOperational');
+    const dataContractResult = await this.dataContract.methods.isOperational().call({ from: this.account });
+    if (dataContractResult === true) {
+      isDataContractOperationalElement.checked = dataContractResult;
+    } else {
+      isDataContractNotOperationalElement.checked = dataContractResult;
+    }
   },
 };
 
@@ -199,64 +226,3 @@ window.addEventListener('load', function () {
 
   App.start();
 });
-
-// (async () => {
-//   let result = null;
-
-//   let contract = new Contract('localhost', () => {
-//     // Read transaction
-//     contract.isOperational((error, result) => {
-//       console.log(error, result);
-//       display('Operational Status', 'Check if contract is operational', [
-//         { label: 'Operational Status: ', error: error, value: result },
-//       ]);
-//     });
-
-//     // User-submitted transaction
-//     DOM.elid('submit-oracle').addEventListener('click', () => {
-//       let flight = DOM.elid('flight-number').value;
-//       // Write transaction
-//       contract.fetchFlightStatus(flight, (error, result) => {
-//         display('Oracles', 'Trigger oracles', [
-//           { label: 'Fetch Flight Status', error: error, value: result.flight + ' ' + result.timestamp },
-//         ]);
-//       });
-//     });
-
-//     DOM.elid('submit-register-airline').addEventListener('click', async () => {
-//       const airlineAddress = DOM.elid('register-airline-address').value;
-//       try {
-//         await contract.registerAirline(airlineAddress, '0xD0637B3A7035225BeD46f95eEFaC0D9b296972E8');
-//       } catch (err) {
-//         console.log(err);
-//       }
-//     });
-
-//     DOM.elid('airline-fund-submit').addEventListener('click', async () => {
-//       const airlineAddress = DOM.elid('airline-fund-address').value;
-//       const amount = DOM.elid('airline-fund-amount').value;
-//       try {
-//         await contract.fundAirline(airlineAddress, amount);
-//       } catch (err) {
-//         console.log(err);
-//       }
-//     });
-//   });
-// })();
-
-// function display(title, description, results) {
-//   let displayDiv = DOM.elid('display-wrapper');
-//   let section = DOM.section();
-//   section.appendChild(DOM.h2(title));
-//   results.map((result) => {
-//     const row = section.appendChild(DOM.div({ className: 'row' }));
-//     const col = DOM.div({ className: 'col-sm-12' });
-//     const par = col.appendChild(DOM.p(result.label));
-//     const span = DOM.span({ className: 'field-value' }, result.error ? String(result.error) : String(result.value));
-
-//     par.appendChild(span);
-//     row.appendChild(col);
-//     section.appendChild(row);
-//   });
-//   displayDiv.append(section);
-// }
